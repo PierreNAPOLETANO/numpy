@@ -56,11 +56,7 @@ def _get_platform_and_machine():
         system, _, _, _, machine = os.uname()
     except AttributeError:
         system = sys.platform
-        if system == 'win32':
-            machine = os.environ.get('PROCESSOR_ARCHITEW6432', '') \
-                    or os.environ.get('PROCESSOR_ARCHITECTURE', '')
-        else:
-            machine = 'unknown'
+        machine = os.environ.get('PROCESSOR_ARCHITEW6432', '') or os.environ.get('PROCESSOR_ARCHITECTURE', '') if system == 'win32' else 'unknown'
     return system, machine
 
 
@@ -75,13 +71,9 @@ def add_newdoc_for_scalar_type(obj, fixed_aliases, doc):
     character_code = dtype(o).char
     canonical_name_doc = "" if obj == o.__name__ else \
                         f":Canonical name: `numpy.{obj}`\n    "
-    if fixed_aliases:
-        alias_doc = ''.join(f":Alias: `numpy.{alias}`\n    "
-                            for alias in fixed_aliases)
-    else:
-        alias_doc = ''
-    alias_doc += ''.join(f"{_doc_alias_string} `numpy.{alias}`: {doc}.\n    "
-                         for (alias_type, alias, doc) in possible_aliases if alias_type is o)
+    
+    alias_doc = ''.join(f":Alias: `numpy.{alias}`\n    " for alias in fixed_aliases) if fixed_aliases else ''
+    alias_doc += ''.join(f"{_doc_alias_string} `numpy.{alias}`: {doc}.\n    " for (alias_type, alias, doc) in possible_aliases if alias_type is o)
 
     docstring = f"""
     {doc.strip()}
