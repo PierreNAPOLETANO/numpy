@@ -153,10 +153,8 @@ class Template:
                       default_inherit=None, get_template=get_file_template):
         with open(filename, 'rb') as f:
             c = f.read()
-        if encoding:
-            c = c.decode(encoding)
-        else:
-            c = c.decode('latin-1')
+
+        c = c.decode(encoding) if encoding else c = c.decode('latin-1')
         return cls(content=c, name=filename, namespace=namespace,
                    default_inherit=default_inherit, get_template=get_template)
 
@@ -197,10 +195,7 @@ class Template:
         parts = []
         defs = {}
         self._interpret_codes(self._parsed, ns, out=parts, defs=defs)
-        if '__inherit__' in defs:
-            inherit = defs.pop('__inherit__')
-        else:
-            inherit = None
+        inherit = defs.pop('__inherit__') if '__inherit__' in defs else inherit = None
         return ''.join(parts), defs, inherit
 
     def _interpret_inherit(self, body, defs, inherit_template, ns):
@@ -294,10 +289,7 @@ class Template:
         for part in parts:
             assert not isinstance(part, basestring_)
             name, pos = part[0], part[1]
-            if name == 'else':
-                result = True
-            else:
-                result = self._eval(part[2], ns, pos)
+            result = True if name == 'else' else result = self._eval(part[2], ns, pos)
             if result:
                 self._interpret_codes(part[3], ns, out, defs)
                 break
@@ -313,10 +305,7 @@ class Template:
             return value
         except:
             e_type, e_value, e_traceback = sys.exc_info()
-            if getattr(e_value, 'args', None):
-                arg0 = e_value.args[0]
-            else:
-                arg0 = coerce_text(e_value)
+            arg0 = e_value.args[0] if getattr(e_value, 'args', None) else arg0 = coerce_text(e_value)
             e_value.args = (self._add_line_info(arg0, pos),)
             raise e_value
 
@@ -326,11 +315,7 @@ class Template:
             exec(code, self.default_namespace, ns)
         except:
             e_type, e_value, e_traceback = sys.exc_info()
-            if e_value.args:
-                e_value.args = (self._add_line_info(e_value.args[0], pos),)
-            else:
-                e_value.args = (self._add_line_info(None, pos),)
-            raise e_value
+            raise (self._add_line_info(e_value.args[0], pos),) if e_value.args else (self._add_line_info(None, pos),)
 
     def _repr(self, value, pos):
         # __traceback_hide__ = True
@@ -492,14 +477,8 @@ class HTMLTemplate(Template):
     def _repr(self, value, pos):
         if hasattr(value, '__html__'):
             value = value.__html__()
-            quote = False
-        else:
-            quote = True
-        plain = Template._repr(self, value, pos)
-        if quote:
-            return html_quote(plain)
-        else:
-            return plain
+        quote = False if hasattr(value, '__html__') else True
+        return html_quote(Template._repr(self, value, pos)) if quote else Template._repr(self, value, pos)
 
 
 def sub_html(content, **kw):
@@ -727,10 +706,8 @@ def trim_lex(tokens):
             prev = ''
         else:
             prev = tokens[i - 1]
-        if i + 1 >= len(tokens):
-            next_chunk = ''
-        else:
-            next_chunk = tokens[i + 1]
+
+        next_chunk = '' if i + 1 >= len(tokens) else tokens[i + 1]
         if (not
                 isinstance(next_chunk, basestring_) or
                 not isinstance(prev, basestring_)):
@@ -767,10 +744,7 @@ def find_position(string, index, last_index, last_pos):
     Given a string and index, return (line, column)
     """
     lines = string.count('\n', last_index, index)
-    if lines > 0:
-        column = index - string.rfind('\n', last_index, index)
-    else:
-        column = last_pos[1] + (index - last_index)
+    column = index - string.rfind('\n', last_index, index) if lines > 0 else last_pos[1] + (index - last_index)
     return (last_pos[0] + lines, column)
 
 
@@ -1042,10 +1016,8 @@ def parse_signature(sig_text, name, pos):
                 tokens)
         except StopIteration:
             return tokenize.ENDMARKER, ''
-        if pos:
-            return tok_type, tok_string, (srow, scol), (erow, ecol)
-        else:
-            return tok_type, tok_string
+        return tok_type, tok_string, (srow, scol), (erow, ecol) if pos else tok_type, tok_string
+    
     while 1:
         var_arg_type = None
         tok_type, tok_string = get_token()
@@ -1189,10 +1161,8 @@ def fill_command(args=None):
     else:
         with open(template_name, 'rb', encoding="latin-1") as f:
             template_content = f.read()
-    if options.use_html:
-        TemplateClass = HTMLTemplate
-    else:
-        TemplateClass = Template
+
+    TemplateClass = HTMLTemplate if options.use_html else Template
     template = TemplateClass(template_content, name=template_name)
     result = template.substitute(vars)
     if options.output:

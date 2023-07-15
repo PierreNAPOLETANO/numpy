@@ -271,10 +271,7 @@ def default_fill_value(obj):
 
     """
     def _scalar_fill_value(dtype):
-        if dtype.kind in 'Mm':
-            return default_filler.get(dtype.str[1:], '?')
-        else:
-            return default_filler.get(dtype.kind, '?')
+        return default_filler.get(dtype.str[1:], '?') if dtype.kind in 'Mm' else default_filler.get(dtype.kind, '?')
 
     dtype = _get_dtype_of(obj)
     return _recursive_fill_value(dtype, _scalar_fill_value)
@@ -421,10 +418,7 @@ def _recursive_set_fill_value(fillvalue, dt):
         if cdtype.subdtype:
             cdtype = cdtype.subdtype[0]
 
-        if cdtype.names is not None:
-            output_value.append(tuple(_recursive_set_fill_value(fval, cdtype)))
-        else:
-            output_value.append(np.array(fval, dtype=cdtype).item())
+        output_value.append(tuple(_recursive_set_fill_value(fval, cdtype)) if cdtype.names is not None else np.array(fval, dtype=cdtype).item())
     return tuple(output_value)
 
 
@@ -543,11 +537,7 @@ def get_fill_value(a):
     default filling value for that type.
 
     """
-    if isinstance(a, MaskedArray):
-        result = a.fill_value
-    else:
-        result = default_fill_value(a)
-    return result
+    return a.fill_value if isinstance(a, MaskedArray) else default_fill_value(a)
 
 
 def common_fill_value(a, b):
@@ -648,10 +638,7 @@ def get_masked_subclass(*arrays):
     """
     if len(arrays) == 1:
         arr = arrays[0]
-        if isinstance(arr, MaskedArray):
-            rcls = type(arr)
-        else:
-            rcls = MaskedArray
+        rcls = type(arr) if isinstance(arr, MaskedArray) else MaskedArray
     else:
         arrcls = [type(a) for a in arrays]
         rcls = arrcls[0]
@@ -1019,10 +1006,7 @@ class _MaskedBinaryOperation(_MaskedUFunc):
         # Get the mask for the result
         (ma, mb) = (getmask(a), getmask(b))
         if ma is nomask:
-            if mb is nomask:
-                m = nomask
-            else:
-                m = umath.logical_or(getmaskarray(a), mb)
+            m = nomask if mb is nomask else umath.logical_or(getmaskarray(a), mb)
         elif mb is nomask:
             m = umath.logical_or(ma, getmaskarray(b))
         else:
@@ -1066,18 +1050,12 @@ class _MaskedBinaryOperation(_MaskedUFunc):
                 m = make_mask(m, copy=True)
                 m.shape = (1,)
 
-        if m is nomask:
-            tr = self.f.reduce(t, axis)
-            mr = nomask
-        else:
-            tr = self.f.reduce(t, axis, dtype=dtype)
-            mr = umath.logical_and.reduce(m, axis)
+
+        tr = self.f.reduce(t, axis) if m is nomask else self.f.reduce(t, axis, dtype=dtype)
+        mr = nomask if m is nomask else umath.logical_and.reduce(m, axis)
 
         if not tr.shape:
-            if mr:
-                return masked
-            else:
-                return tr
+            return masked if mr else tr
         masked_tr = tr.view(tclass)
         masked_tr._mask = mr
         return masked_tr
@@ -1169,10 +1147,7 @@ class _DomainedBinaryOperation(_MaskedUFunc):
             m |= domain(da, db)
         # Take care of the scalar case first
         if not m.ndim:
-            if m:
-                return masked
-            else:
-                return result
+            return masked if m else result
         # When the mask is True, put back da if possible
         # any errors, just abort; impossible to guarantee masked values
         try:
@@ -1544,10 +1519,7 @@ def _shrink_mask(m):
     """
     Shrink a mask to nomask if possible
     """
-    if m.dtype.names is None and not m.any():
-        return nomask
-    else:
-        return m
+    return nomask if m.dtype.names is None and not m.any() else return m
 
 
 def make_mask(m, copy=False, shrink=True, dtype=MaskType):
@@ -1682,11 +1654,7 @@ def make_mask_none(newshape, dtype=None):
           dtype=[('foo', '|b1'), ('bar', '|b1')])
 
     """
-    if dtype is None:
-        result = np.zeros(newshape, dtype=MaskType)
-    else:
-        result = np.zeros(newshape, dtype=make_mask_descr(dtype))
-    return result
+    return np.zeros(newshape, dtype=MaskType) if dtype is None else np.zeros(newshape, dtype=make_mask_descr(dtype))
 
 
 def _recursive_mask_or(m1, m2, newmask):
@@ -1790,19 +1758,13 @@ def flatten_mask(mask):
     def _flatmask(mask):
         "Flatten the mask and returns a (maybe nested) sequence of booleans."
         mnames = mask.dtype.names
-        if mnames is not None:
-            return [flatten_mask(mask[name]) for name in mnames]
-        else:
-            return mask
+        return [flatten_mask(mask[name]) for name in mnames] if mnames is not None else mask
 
     def _flatsequence(sequence):
         "Generates a flattened version of the sequence."
         try:
             for element in sequence:
-                if hasattr(element, '__iter__'):
-                    yield from _flatsequence(element)
-                else:
-                    yield element
+                yield from _flats equence(element) if hasattr(element, '__iter__') else element
         except TypeError:
             yield sequence
 
@@ -1930,11 +1892,10 @@ def masked_where(condition, a, copy=True):
     if cshape and cshape != ashape:
         raise IndexError("Inconsistent shape between the condition and the input"
                          " (got %s and %s)" % (cshape, ashape))
+
+    cls = type(a) if hasattr(a, '_mask') else MaskedArray
     if hasattr(a, '_mask'):
         cond = mask_or(cond, a._mask)
-        cls = type(a)
-    else:
-        cls = MaskedArray
     result = a.view(cls)
     # Assign to *.mask so that structured masks are handled correctly.
     result.mask = _shrink_mask(cond)
@@ -2317,10 +2278,7 @@ def masked_values(x, value, rtol=1e-5, atol=1e-8, copy=True, shrink=True):
 
     """
     xnew = filled(x, value)
-    if np.issubdtype(xnew.dtype, np.floating):
-        mask = np.isclose(xnew, value, atol=atol, rtol=rtol)
-    else:
-        mask = umath.equal(xnew, value)
+    mask = np.isclose(xnew, value, atol=atol, rtol=rtol) if np.issubdtype(xnew.dtype, np.floating) else umath.equal(xnew, value)
     ret = masked_array(xnew, mask=mask, copy=copy, fill_value=value)
     if shrink:
         ret.shrink_mask()
@@ -2635,11 +2593,7 @@ class MaskedIterator:
     def __init__(self, ma):
         self.ma = ma
         self.dataiter = ma._data.flat
-
-        if ma._mask is nomask:
-            self.maskiter = None
-        else:
-            self.maskiter = ma._mask.flat
+        self.maskiter = None if ma._mask is nomask else ma._mask.flat
 
     def __iter__(self):
         return self
@@ -2825,10 +2779,7 @@ class MaskedArray(ndarray):
         # Here, we copy the _view_, so that we can attach new properties to it
         # we must never do .view(MaskedConstant), as that would create a new
         # instance of np.ma.masked, which make identity comparison fail
-        if isinstance(data, cls) and subok and not isinstance(data, MaskedConstant):
-            _data = ndarray.view(_data, type(data))
-        else:
-            _data = ndarray.view(_data, cls)
+        _data = ndarray.view(_data, type(data)) if isinstance(data, cls) and subok and not isinstance(data, MaskedConstant) else ndarray.view(_data, cls)
 
         # Handle the case where data is not a subclass of ndarray, but
         # still has the _mask attribute like MaskedArrays
@@ -2843,11 +2794,7 @@ class MaskedArray(ndarray):
             # Erase the current mask ?
             if not keep_mask:
                 # With a reduced version
-                if shrink:
-                    _data._mask = nomask
-                # With full version
-                else:
-                    _data._mask = np.zeros(_data.shape, dtype=mdtype)
+                _data.mask = nomask if shrink else np.zeros(_data.shape, dtype=mdtype)
             # Check whether we missed something
             elif isinstance(data, (tuple, list)):
                 try:
@@ -2939,10 +2886,7 @@ class MaskedArray(ndarray):
         if fill_value is not None:
             _data._fill_value = _check_fill_value(fill_value, _data.dtype)
         # Process extra options ..
-        if hard_mask is None:
-            _data._hardmask = getattr(data, '_hardmask', False)
-        else:
-            _data._hardmask = hard_mask
+        _data._hardmask = getattr(data, '_hardmask', False) if hard_mask else hard_mask
         _data._baseclass = _baseclass
         return _data
 
@@ -2952,10 +2896,7 @@ class MaskedArray(ndarray):
         Copies some attributes of obj to self.
 
         """
-        if isinstance(obj, ndarray):
-            _baseclass = type(obj)
-        else:
-            _baseclass = ndarray
+        _baseclass = type(obj) if isinstance(obj, ndarray) else ndarray
         # We need to copy the _basedict to avoid backward propagation
         _optinfo = {}
         _optinfo.update(getattr(obj, '_optinfo', {}))
@@ -3010,10 +2951,7 @@ class MaskedArray(ndarray):
         if isinstance(obj, ndarray):
             # XX: This looks like a bug -- shouldn't it check self.dtype
             # instead?
-            if obj.dtype.names is not None:
-                _mask = getmaskarray(obj)
-            else:
-                _mask = getmask(obj)
+            _mask = getmaskarray(obj) if obj.dtype.names is not None else getmask(obj)
 
             # If self and obj point to exactly the same data, then probably
             # self is a simple view of obj (e.g., self = obj[...]), so they
@@ -3029,10 +2967,7 @@ class MaskedArray(ndarray):
                 # (e.g., changing to or from a structured dtype), and the
                 # order could have changed. So, change the mask type if
                 # needed and use astype instead of copy.
-                if self.dtype == obj.dtype:
-                    _mask_dtype = _mask.dtype
-                else:
-                    _mask_dtype = make_mask_descr(self.dtype)
+                _mask_dtype = _mask.dtype if self.dtype == obj.dtype else make_mask_descr(self.dtype)
 
                 if self.flags.c_contiguous:
                     order = "C"
@@ -3107,11 +3042,7 @@ class MaskedArray(ndarray):
                     np.copyto(result, fill_value, where=d)
 
                     # Update the mask
-                    if m is nomask:
-                        m = d
-                    else:
-                        # Don't modify inplace, we risk back-propagation
-                        m = (m | d)
+                    m = d if m is nomask else (m | d)
 
             # Make sure the mask has the proper size
             if result is not self and result.shape == () and m:
@@ -3179,17 +3110,12 @@ class MaskedArray(ndarray):
         """
 
         if dtype is None:
-            if type is None:
-                output = ndarray.view(self)
-            else:
-                output = ndarray.view(self, type)
+            output = ndarray.view(self) if type is None else ndarray.view(self, type)
         elif type is None:
             try:
+                output = ndarray.view(self, dtype) if issubclass(dtype, ndarray) else ndarray.view(self, dtype)
                 if issubclass(dtype, ndarray):
-                    output = ndarray.view(self, dtype)
                     dtype = None
-                else:
-                    output = ndarray.view(self, dtype)
             except TypeError:
                 output = ndarray.view(self, dtype)
         else:

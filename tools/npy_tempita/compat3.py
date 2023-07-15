@@ -34,20 +34,11 @@ text = str
 
 
 def is_unicode(obj):
-    if sys.version_info[0] < 3:
-        return isinstance(obj, unicode)
-    else:
-        return isinstance(obj, str)
+    return isinstance(obj, unicode) if sys.version_info[0] < 3 else isinstance(obj, str)
 
 
 def coerce_text(v):
     if not isinstance(v, basestring_):
-        if sys.version_info[0] < 3:
-            attr = '__unicode__'
-        else:
-            attr = '__str__'
-        if hasattr(v, attr):
-            return unicode(v)
-        else:
-            return bytes(v)
+        attr = '__unicode__' if sys.version_info[0] < 3 else attr = '__str__'
+        return unicode(v) if hasattr(v, attr) else return bytes(v)
     return v
